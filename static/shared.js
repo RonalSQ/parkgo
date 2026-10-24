@@ -42,7 +42,7 @@ const PG = (() => {
  const money=n=>'$'+Number(n||0).toLocaleString('es-CO');
  const media=f=>'/static/media/'+(['garage_main.jpg','garage_wide.jpg','garage_green.jpg','garage_car.jpg'].includes(f)?f:'garage_main.jpg');
  const statusName={confirmed:'Confirmada',checked_in:'Vehículo ingresó',completed:'Finalizada',cancelled:'Cancelada'};
- const toast=(message,bad=false)=>{const el=document.getElementById('toast');el.textContent=message;el.className='toast-msg '+(bad?'error':'');clearTimeout(el._timer);el._timer=setTimeout(()=>{el.className='';},4400)};
+ const toast=(message,bad=false)=>{const el=document.getElementById('toast');el.textContent=message;el.className='toast-msg '+(bad?'error':'');clearTimeout(el._timer);el._timer=setTimeout(()=>{el.className='';el.textContent='';},6000)};
  const errorText=err=>String(err?.detail||err?.message||'Ha ocurrido un error.');
  async function api(path,options={}) {
   const opts={credentials:'same-origin',...options};
@@ -57,6 +57,17 @@ const PG = (() => {
  const getAuth=()=>auth;
  const modal=(html)=>{document.getElementById('modalRoot').innerHTML=`<div class="overlay" id="overlay"><section role="dialog" aria-modal="true" class="dialog"><button class="dialog-close" data-close-modal aria-label="Cerrar">${icon('close')}</button>${html}</section></div>`;document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay'||e.target.closest('[data-close-modal]'))closeModal()});};
  const closeModal=()=>document.getElementById('modalRoot').replaceChildren();
+ document.addEventListener('keydown',e=>{
+  const dialog=document.querySelector('.dialog');if(!dialog)return;
+  if(e.key==='Escape'){e.preventDefault();closeModal();return;}
+  if(e.key==='Tab'){
+   const controls=[...dialog.querySelectorAll('button,input,select,textarea,a[href],summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+   const first=controls[0],last=controls[controls.length-1];
+   if(!dialog.contains(document.activeElement)){e.preventDefault();first?.focus();}
+   else if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+  }
+ });
  function field(label,name,value='',type='text',required=true,extra=''){
   return `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${esc(value)}" ${required?'required':''} ${extra}/></label>`;
  }

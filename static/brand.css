@@ -1,0 +1,57 @@
+/* ParkGo: the team's original artwork, with readable yellow/charcoal controls. */
+:root{--blue:#292820;--blue-dark:#090909;--lime:#ffd000;--navy:#181818;--ink:#242424;--muted:#59616b;--bg:#f7f7f3;--line:#e2e2db}
+.brand-logo{width:190px;height:64px;object-fit:contain;border-radius:0;display:block}
+.hero-compact{background:#111;color:white;padding-right:350px}
+.hero-compact:after{display:none}
+.hero-logo{position:absolute;right:32px;top:50%;transform:translateY(-50%);width:280px;height:120px;object-fit:contain;border-radius:0;filter:brightness(0) invert(1)}
+.business-sidebar .brand-logo,.login-side .brand-logo{filter:brightness(0) invert(1)}
+.hero-compact .primary,.primary,.lime-btn{background:#ffd000;color:#191919;box-shadow:none}
+.primary:hover,.lime-btn:hover{background:#edc000}
+.secondary{background:#fff5c2;color:#292820}
+.category.active,.floor-tabs button.active{background:#ffd000;color:#191919;border-color:#dab400}
+.hello-slogan,.hello-name em,.notification{color:#5f5100}
+.notification{background:#fff4b3}
+.business-sidebar{background:#161616}
+.business-nav button.active{background:#ffd000;color:#171717}
+.business-sidebar .sidebar-label,.business-sidebar .bottom-copy,.business-nav button{color:#deded6}
+.login-side{background:#171717}.login-side p{color:#e2e2dc}
+.login-side .brand-logo{width:250px;height:84px;margin:0;border-radius:0}
+.login-badge,.stat-box .stat-icon{background:#fff3b0;color:#463a00}
+.pg-marker{background:#ffd000;color:#161616}
+.parking-slot.selected{background:#fff1a3!important;border:3px solid #826b00!important;color:#221d00!important}
+.dot.picked{background:#ffd000;border:1px solid #826b00}
+.parking-slot.occupied{opacity:1;background:#e5e7e9;color:#555e67}
+.parking-slot.selected small{font-weight:800;opacity:1}
+.parking-slot.selected small:after{content:' · Elegido'}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #806900;outline-offset:3px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#806900;box-shadow:0 0 0 3px #ffd00033}
+.small-btn,.floor-tabs button,.dialog-close,.table-actions button{min-height:44px}
+.dialog-close{width:44px}.auth-title{padding-right:35px}
+.field,.ticket-meta,.address,.lot-card-meta,.auth-lead,.booking-warning,.map-note,.table td,.subcopy{font-size:14px;color:#535c65}
+.field input,.field select,.field textarea{font-size:16px}
+.bottom-nav small,.parking-slot small{font-size:12px}
+.booking-time-note{font-size:14px;background:#fff7d5;border-radius:12px;padding:13px;margin:12px 0 20px;line-height:1.7;color:#403a22}
+.location-picker{border:1px solid var(--line);border-radius:14px;padding:15px;background:#fafaf7}
+.location-picker p{font-size:14px;margin:8px 0 12px;color:#535c65}
+#locationMap{height:300px;border-radius:12px;background:#e8e9e2;position:relative;z-index:0}
+.location-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.location-picker summary{cursor:pointer;padding:12px 0;font-size:14px}
+.map-error{max-width:220px;background:white;color:#843500;padding:12px;border:1px solid #d7b98b;border-radius:10px;font-size:13px;box-shadow:0 3px 12px #0002}
+.map-card{height:auto;padding-bottom:16px}
+.dialog .leaflet-control-attribution{font-size:11px}
+@media(max-width:640px){
+ .header-auth-label{display:inline}.brand-logo{width:155px;height:52px}
+ .search-row>.outline{font-size:12px;max-width:90px;flex-wrap:wrap;gap:2px}
+ .search-row>.outline .header-auth-label{display:inline}
+ .parking-slot{min-height:104px}
+ .bottom-nav button.active{color:#3e3500;background:#fff8d5}
+ .business-nav button{font-size:11px;flex-direction:column;gap:3px;min-height:48px}
+ .business-sidebar{flex-wrap:wrap;gap:8px}
+ .booking-controls{grid-template-columns:1fr}.booking-controls .fieldgrid{grid-template-columns:1fr 1fr}
+ .booking-summary .booking-warning{font-size:13px}
+ .map-holder{height:240px}.map-note{font-size:12px}
+ .map-card h3{display:block}.toast-msg{bottom:85px;font-size:15px}
+ .form-layout{gap:18px}.location-picker{padding:10px}#locationMap{height:260px}
+}
+
+.booking-controls{display:grid;gap:14px;margin:18px 0}.booking-controls .field{font-size:14px}

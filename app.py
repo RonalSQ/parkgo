@@ -187,7 +187,10 @@ async def protect_origin(request:Request,call_next):
             return Response('Origen no autorizado',403)
     response=await call_next(request)
     response.headers['X-Content-Type-Options']='nosniff'
-    response.headers['Referrer-Policy']='same-origin'
+    # Map providers need the site's origin on cross-origin tile requests.
+    response.headers['Referrer-Policy']='strict-origin-when-cross-origin'
+    if request.url.path.startswith('/api/'):
+        response.headers['Cache-Control']='no-store'
     response.headers['X-Frame-Options']='DENY'
     return response
 

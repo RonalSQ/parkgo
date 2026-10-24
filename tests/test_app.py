@@ -85,3 +85,41 @@ def test_driver_cannot_manage_and_requires_login(demo):
 def test_colombia_timezone_offset():
     offset = appmodule.now().replace(tzinfo=appmodule.TZ).utcoffset()
     assert offset == timedelta(hours=-5)
+
+
+def test_a06_is_busy_only_for_overlapping_times_and_released_on_cancel(demo):
+    driver,admin,dh,ah=demo
+    when=start_tomorrow()
+    body={'lot_id':'demo-parkgo','vehicle':'car','plate':'ABC123','starts_at':when,'hours':2,'spot_code':'A-06'}
+    reservation=driver.post('/api/reservations',json=body,headers=dh)
+    assert reservation.status_code==201
+    def slot(hour, vehicle='car'):
+        response=driver.get('/api/lots/demo-parkgo/spaces',params={
+            'starts_at':when[:11]+hour,'hours':1,'vehicle':vehicle})
+        assert response.headers['cache-control']=='no-store'
+        return next(s for s in response.json()['spaces'] if s['code']==('A-06' if vehicle=='car' else 'M-06'))
+    assert slot('10:00')['free'] is False
+    assert slot('11:00')['free'] is False
+    assert slot('09:00')['free'] is True
+    assert slot('12:00')['free'] is True
+    assert slot('10:00','moto')['free'] is True
+    assert driver.post('/api/reservations',json={**body,'plate':'XYZ789'},headers=dh).status_code==409
+    assert driver.post(f"/api/reservations/{reservation.json()['id']}/cancel",headers=dh).status_code==200
+    assert slot('10:00')['free'] is True
+
+
+def test_simultaneous_reservations_do_not_double_book(demo):
+    from concurrent.futures import ThreadPoolExecutor
+    driver,admin,dh,ah=demo
+    body={'lot_id':'demo-parkgo','vehicle':'car','plate':'ABC123','starts_at':start_tomorrow(),'hours':2,'spot_code':'A-06'}
+    def reserve(plate):
+        client=TestClient(appmodule.app)
+        client.cookies.update(driver.cookies)
+        return client.post('/api/reservations',json={**body,'plate':plate},headers=dh).status_code
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results=list(pool.map(reserve,['ABC123','XYZ789']))
+    assert sorted(results)==[201,409]
+
+
+def test_map_referrer_policy(demo):
+    assert demo[0].get('/').headers['referrer-policy']=='strict-origin-when-cross-origin'
