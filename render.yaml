@@ -1,0 +1,20 @@
+# Park Go - DEMOSTRACIÓN ACADÉMICA: plan gratuito SIN persistencia garantizada.
+# La base SQLite incluida contiene únicamente un parqueadero ficticio y ninguna cuenta.
+services:
+  - type: web
+    name: parkgo-demo-academico
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PARKGO_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.12.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PARKGO_ADMIN_EMAIL
+        sync: false
+      - key: PARKGO_ADMIN_PASSWORD
+        sync: false

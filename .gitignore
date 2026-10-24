@@ -1,0 +1,12 @@
+# Archivos locales y secretos
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+*.pyc
+*.log
+*.db-shm
+*.db-wal
+*.sqlite3
+# parkgo.db se incluye intencionalmente con solo UN establecimiento ficticio y SIN cuentas.
