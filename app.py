@@ -96,6 +96,7 @@ def check_password(password, saved):
 
 def init_db():
     with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
         db.execute('''CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
           password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'driver', created_at TEXT NOT NULL
@@ -151,6 +152,20 @@ def init_db():
                 hash_password(ADMIN_PASSWORD), 'admin', now().isoformat(timespec='seconds')
             ))
 
+        db.execute('CREATE TABLE IF NOT EXISTS lot_owners (lot_id TEXT PRIMARY KEY REFERENCES lots(id), user_id TEXT NOT NULL REFERENCES users(id))')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_lot_owner_user ON lot_owners(user_id)')
+        if not db.execute('SELECT id FROM users WHERE email=?', ('hermanosg@admin.com',)).fetchone():
+            db.execute('INSERT INTO users VALUES (?,?,?,?,?,?)', (
+                secrets.token_hex(12), 'Administrador Hermanos G', 'hermanosg@admin.com',
+                hash_password('hermanos123'), 'admin', now().isoformat(timespec='seconds')
+            ))
+        # Migrate existing lots once, preserving assignments on subsequent starts.
+        for lot in db.execute('SELECT id FROM lots').fetchall():
+            email = ('hermanosg@admin.com' if lot['id']=='demo-hermanos-g' else
+                     'admin@admin.com' if lot['id']=='demo-parkgo' else ADMIN_EMAIL)
+            owner = db.execute('SELECT id FROM users WHERE email=?', (email,)).fetchone()
+            db.execute('INSERT OR IGNORE INTO lot_owners VALUES (?,?)', (lot['id'], owner['id']))
+
 init_db()
 
 
@@ -182,6 +197,19 @@ def require_admin(request:Request):
     user=require_user(request)
     if user['role']!='admin':raise HTTPException(403,'Acceso reservado al operador.')
     return user
+
+
+def require_lot_owner(db, user, lot_id):
+    if not db.execute('SELECT 1 FROM lot_owners WHERE lot_id=? AND user_id=?',
+                      (lot_id, user['id'])).fetchone():
+        raise HTTPException(404, 'Parqueadero no encontrado.')
+
+
+def require_booking_owner(db, user, rid):
+    row = db.execute('SELECT r.* FROM reservations r JOIN lot_owners o ON o.lot_id=r.lot_id WHERE r.id=? AND o.user_id=?',
+                     (rid, user['id'])).fetchone()
+    if not row:raise HTTPException(404, 'Reserva no encontrada.')
+    return row
 
 
 def csrf_for(session):
@@ -440,7 +468,9 @@ def qr(rid:str,request:Request):
     user=require_user(request)
     with connect() as db:
         b=booking_dict(db,rid)
-    if b['user_id']!=user['id'] and user['role']!='admin':raise HTTPException(403,'No autorizado.')
+        if b['user_id']!=user['id']:
+            if user['role']!='admin':raise HTTPException(403,'No autorizado.')
+            require_booking_owner(db,user,rid)
     img=qrcode.QRCode(box_size=7,border=2)
     img.add_data('PARKGO|'+b['code']);img.make(fit=True)
     stream=io.BytesIO();img.make_image(fill_color='#11317c',back_color='white').save(stream,format='PNG')
@@ -476,10 +506,10 @@ def validate_lot(v):
 
 @app.get('/api/admin/dashboard')
 def dashboard(request:Request):
-    require_admin(request)
+    user=require_admin(request)
     with connect() as db:
-        lots=[public_lot(db,r) for r in db.execute('SELECT * FROM lots ORDER BY active DESC,created_at DESC').fetchall()]
-        bids=db.execute('SELECT id FROM reservations ORDER BY created_at DESC').fetchall()
+        lots=[public_lot(db,r) for r in db.execute('SELECT l.* FROM lots l JOIN lot_owners o ON o.lot_id=l.id WHERE o.user_id=? ORDER BY l.active DESC,l.created_at DESC',(user['id'],)).fetchall()]
+        bids=db.execute('SELECT r.id FROM reservations r JOIN lot_owners o ON o.lot_id=r.lot_id WHERE o.user_id=? ORDER BY r.created_at DESC',(user['id'],)).fetchall()
         books=[booking_dict(db,r['id']) for r in bids]
     active=[b for b in books if b['status'] in ('confirmed','checked_in')]
     return {'lots':lots,'reservations':books,'summary':{
@@ -491,25 +521,28 @@ def dashboard(request:Request):
 
 @app.post('/api/admin/lots',status_code=201)
 def add_lot(body:LotInput,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     validate_lot(body)
     ident='lot-'+secrets.token_hex(6)
     with connect() as db:
+        db.execute('BEGIN IMMEDIATE')
         db.execute('''INSERT INTO lots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(
             ident,body.name.strip(),body.city.strip(),body.area.strip(),body.address.strip(),body.lat,body.long,
             body.capacity_car,body.capacity_moto,body.rate_car,body.rate_moto,body.opens,body.closes,
             body.description.strip(),body.services.strip(),body.image,body.floor_count,body.car_cols,
             body.moto_cols,int(body.layout_enabled),1,now().isoformat(timespec='seconds')
         ))
+        db.execute('INSERT INTO lot_owners VALUES (?,?)',(ident,user['id']))
         return public_lot(db,db.execute('SELECT * FROM lots WHERE id=?',(ident,)).fetchone())
 
 @app.put('/api/admin/lots/{lid}')
 def update_lot(lid:str,body:LotInput,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     validate_lot(body)
     db=connect()
     try:
         db.execute('BEGIN IMMEDIATE')
+        require_lot_owner(db,user,lid)
         prev=db.execute('SELECT * FROM lots WHERE id=?',(lid,)).fetchone()
         if not prev:raise HTTPException(404,'Parqueadero no encontrado.')
         future=db.execute('''SELECT vehicle,spot_code FROM reservations WHERE lot_id=? AND status IN ('confirmed','checked_in') AND ends_at>?''',
@@ -536,26 +569,27 @@ def update_lot(lid:str,body:LotInput,request:Request):
 
 @app.delete('/api/admin/lots/{lid}')
 def archive_lot(lid:str,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     with connect() as db:
-        if not db.execute('SELECT id FROM lots WHERE id=?',(lid,)).fetchone():raise HTTPException(404,'Parqueadero no encontrado.')
+        require_lot_owner(db,user,lid)
         db.execute('UPDATE lots SET active=0 WHERE id=?',(lid,))
     return {'ok':True,'archived':True,'message':'Parqueadero retirado del catálogo; se conservó el historial.'}
 
 @app.post('/api/admin/lots/{lid}/restore')
 def restore_lot(lid:str,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     with connect() as db:
+        require_lot_owner(db,user,lid)
         res=db.execute('UPDATE lots SET active=1 WHERE id=?',(lid,))
         if res.rowcount==0:raise HTTPException(404,'Parqueadero no encontrado.')
     return {'ok':True}
 
 @app.get('/api/admin/verify')
 def verify_booking(code:str,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     if code.startswith('PARKGO|'):code=code.split('|')[1]
     with connect() as db:
-        row=db.execute('SELECT id FROM reservations WHERE code=?',(code.strip().upper(),)).fetchone()
+        row=db.execute('SELECT r.id FROM reservations r JOIN lot_owners o ON o.lot_id=r.lot_id WHERE r.code=? AND o.user_id=?',(code.strip().upper(),user['id'])).fetchone()
         if not row:raise HTTPException(404,'Código de reserva no encontrado.')
         return booking_dict(db,row['id'])
 
@@ -564,10 +598,10 @@ class StatusChange(BaseModel):
 
 @app.post('/api/admin/reservations/{rid}/status')
 def status_change(rid:str,body:StatusChange,request:Request):
-    require_admin(request)
+    user=require_admin(request)
     transitions={'confirmed':{'checked_in','cancelled'},'checked_in':{'completed'}}
     with connect() as db:
-        row=db.execute('SELECT status FROM reservations WHERE id=?',(rid,)).fetchone()
+        row=require_booking_owner(db,user,rid)
         if not row:raise HTTPException(404,'Reserva no encontrada.')
         if body.status not in transitions.get(row['status'],set()):
             raise HTTPException(409,'Cambio de estado no permitido.')

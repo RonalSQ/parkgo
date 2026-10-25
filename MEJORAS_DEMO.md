@@ -25,6 +25,15 @@ Los mapas necesitan internet y dependen de la disponibilidad de OpenStreetMap. E
 ## Acceso y parqueadero Hermanos G (25 de octubre de 2026)
 
 - El formulario incluye Conductor / Administrador también en celular. Las cuentas administradoras se redirigen a /business; las cuentas de conductor no pueden gestionar parqueaderos.
-- Cuenta adicional de demostración: admin@admin.com / admin1234. Tiene permisos para gestionar todos los parqueaderos del demo; no usar estas credenciales públicas para datos reales.
+- Cuenta adicional de demostración: admin@admin.com / admin1234. Gestiona Park Go Central; no usar estas credenciales públicas para datos reales.
 - Hermanos G: Carrera 8 # 1A-41, Pamplona, con la foto aportada. Datos simulados: 24 autos, 12 motos, $4.000/h auto, $2.000/h moto, 06:00–22:00. Coordenadas aproximadas editables desde el panel.
 - Las incorporaciones se crean al iniciar el servidor, incluso en bases existentes; no duplican registros ni sobrescriben ediciones o archivos del parqueadero en reinicios.
+
+
+## Separación por propietario
+
+- Park Go Central: admin@admin.com / admin1234.
+- Hermanos G: hermanosg@admin.com / hermanos123.
+- Cada cuenta administra únicamente sus parqueaderos, reservas, métricas y códigos QR. Los conductores siguen viendo el catálogo completo.
+- Cada nueva sede se asigna automáticamente al administrador que la crea. La API no permite elegir ni modificar el propietario mediante el formulario.
+- La migración conserva las reservas existentes y las asignaciones en reinicios. Otros establecimientos antiguos se asignan al operador configurado en PARKGO_ADMIN_EMAIL. Esa cuenta tampoco tiene acceso global.

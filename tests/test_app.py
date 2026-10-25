@@ -17,7 +17,7 @@ def demo(tmp_path,monkeypatch):
     reg=driver.post('/api/auth/register',json={'name':'Ana Pérez','email':email,'password':'Seguro12345'})
     assert reg.status_code==200,reg.text
     admin=TestClient(appmodule.app)
-    login=admin.post('/api/auth/login',json={'email':appmodule.ADMIN_EMAIL,'password':appmodule.ADMIN_PASSWORD})
+    login=admin.post('/api/auth/login',json={'email':'admin@admin.com','password':'admin1234'})
     assert login.status_code==200,login.text
     return driver,admin,{'X-CSRF-Token':reg.json()['csrf']},{'X-CSRF-Token':login.json()['csrf']}
 
@@ -139,6 +139,58 @@ def test_additions_survive_restart_and_demo_admin(demo):
     assert lot['address']=='Carrera 8 # 1A-41'
     assert lot['image']=='hermanos_g.png'
     assert client.get('/static/media/hermanos_g.png').status_code==200
-    assert client.delete('/api/admin/lots/demo-hermanos-g',headers={'X-CSRF-Token':login.json()['csrf']}).status_code==200
+    assert client.delete('/api/admin/lots/demo-parkgo',headers={'X-CSRF-Token':login.json()['csrf']}).status_code==200
     appmodule.init_db()
     assert len(driver.get('/api/lots').json())==1
+
+
+def test_business_ownership_isolation(demo):
+    driver,central,dh,ch=demo
+    hermanos=TestClient(appmodule.app)
+    login=hermanos.post('/api/auth/login',json={'email':'hermanosg@admin.com','password':'hermanos123'})
+    assert login.status_code==200
+    hh={'X-CSRF-Token':login.json()['csrf']}
+    bookings={}
+    for lid in ['demo-parkgo','demo-hermanos-g']:
+        result=driver.post('/api/reservations',headers=dh,json={
+            'lot_id':lid,'vehicle':'car','plate':'ABC123','starts_at':start_tomorrow(),'hours':2,'spot_code':'A-01'})
+        assert result.status_code==201
+        bookings[lid]=result.json()
+    for own,other,client,headers in [('demo-parkgo','demo-hermanos-g',central,ch),('demo-hermanos-g','demo-parkgo',hermanos,hh)]:
+        dash=client.get('/api/admin/dashboard').json()
+        assert [l['id'] for l in dash['lots']]==[own]
+        assert [b['id'] for b in dash['reservations']]==[bookings[own]['id']]
+        assert dash['summary']['active_lots']==1
+        assert dash['summary']['reservations']==1
+        assert dash['summary']['booked_value']==bookings[own]['total']
+        body=next(l for l in driver.get('/api/lots').json() if l['id']==other)
+        body['services']=','.join(body['services'])
+        assert client.put('/api/admin/lots/'+other,json=body,headers=headers).status_code==404
+        assert client.delete('/api/admin/lots/'+other,headers=headers).status_code==404
+        assert client.post('/api/admin/lots/'+other+'/restore',headers=headers).status_code==404
+        foreign=bookings[other]
+        assert client.get('/api/admin/verify',params={'code':foreign['code']}).status_code==404
+        assert client.get('/api/reservations/'+foreign['id']+'/qr.png').status_code==404
+        assert client.post('/api/admin/reservations/'+foreign['id']+'/status',json={'status':'checked_in'},headers=headers).status_code==404
+        own_booking=bookings[own]
+        assert client.get('/api/admin/verify',params={'code':'PARKGO|'+own_booking['code']}).status_code==200
+        assert client.get('/api/reservations/'+own_booking['id']+'/qr.png').status_code==200
+        assert client.post('/api/admin/reservations/'+own_booking['id']+'/status',json={'status':'checked_in'},headers=headers).status_code==200
+        body['name']='Nueva sede'
+        created=client.post('/api/admin/lots',json=body,headers=headers)
+        assert created.status_code==201
+        new_id=created.json()['id']
+        appmodule.init_db()
+        assert new_id in [l['id'] for l in client.get('/api/admin/dashboard').json()['lots']]
+        assert (hermanos if client is central else central).delete('/api/admin/lots/'+new_id,headers=hh if client is central else ch).status_code==404
+    assert len(driver.get('/api/lots').json())==4
+
+
+def test_migration_existing_database(demo):
+    with appmodule.connect() as db:
+        db.execute('DROP TABLE lot_owners')
+    appmodule.init_db()
+    appmodule.init_db()
+    with appmodule.connect() as db:
+        owners=dict(db.execute('SELECT o.lot_id,u.email FROM lot_owners o JOIN users u ON u.id=o.user_id').fetchall())
+    assert owners=={'demo-parkgo':'admin@admin.com','demo-hermanos-g':'hermanosg@admin.com'}
