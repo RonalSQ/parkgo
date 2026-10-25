@@ -27,8 +27,8 @@ def start_tomorrow():
 def test_seed_and_private_routes(demo):
     driver,admin,dh,ah=demo
     lots=driver.get('/api/lots').json()
-    assert len(lots)==1
-    assert lots[0]['name']=='Park Go Central'
+    assert len(lots)==2
+    assert {lot['name'] for lot in lots}=={'Park Go Central','Hermanos G'}
     assert driver.get('/api/admin/dashboard').status_code==403
     assert TestClient(appmodule.app).get('/api/admin/dashboard').status_code==401
     assert driver.get('/api/reservations').json()==[]
@@ -38,12 +38,12 @@ def test_reservation_reduces_availability_and_qr_is_private(demo):
     driver,admin,dh,ah=demo
     when=start_tomorrow()
     params={'starts_at':when,'hours':2}
-    before=driver.get('/api/lots',params=params).json()[0]['available_car']
+    before=driver.get('/api/lots',params=params).json()[1]['available_car']
     body={'lot_id':'demo-parkgo','vehicle':'car','plate':'ABC123','starts_at':when,'hours':2,'spot_code':'A-01'}
     r=driver.post('/api/reservations',json=body,headers=dh)
     assert r.status_code==201,r.text
     booking=r.json()
-    after=driver.get('/api/lots',params=params).json()[0]['available_car']
+    after=driver.get('/api/lots',params=params).json()[1]['available_car']
     assert after==before-1
     assert driver.get(f"/api/reservations/{booking['id']}/qr.png").status_code==200
     assert TestClient(appmodule.app).get(f"/api/reservations/{booking['id']}/qr.png").status_code==401
@@ -55,7 +55,7 @@ def test_reservation_reduces_availability_and_qr_is_private(demo):
     assert found['plate']=='ABC123'
     cancel=driver.post(f"/api/reservations/{booking['id']}/cancel",headers=dh)
     assert cancel.status_code==200,cancel.text
-    assert driver.get('/api/lots',params=params).json()[0]['available_car']==before
+    assert driver.get('/api/lots',params=params).json()[1]['available_car']==before
 
 def test_operator_crud_archive_restore(demo):
     driver,admin,dh,ah=demo
@@ -65,15 +65,15 @@ def test_operator_crud_archive_restore(demo):
     r=admin.post('/api/admin/lots',json=body,headers=ah)
     assert r.status_code==201,r.text
     lot_id=r.json()['id']
-    assert len(driver.get('/api/lots').json())==2
+    assert len(driver.get('/api/lots').json())==3
     body['rate_car']=5100
     edit=admin.put(f'/api/admin/lots/{lot_id}',json=body,headers=ah)
     assert edit.status_code==200,edit.text
     assert edit.json()['rate_car']==5100
     assert admin.delete(f'/api/admin/lots/{lot_id}',headers=ah).status_code==200
-    assert len(driver.get('/api/lots').json())==1
-    assert admin.post(f'/api/admin/lots/{lot_id}/restore',headers=ah).status_code==200
     assert len(driver.get('/api/lots').json())==2
+    assert admin.post(f'/api/admin/lots/{lot_id}/restore',headers=ah).status_code==200
+    assert len(driver.get('/api/lots').json())==3
 
 def test_driver_cannot_manage_and_requires_login(demo):
     driver,admin,dh,ah=demo
@@ -123,3 +123,22 @@ def test_simultaneous_reservations_do_not_double_book(demo):
 
 def test_map_referrer_policy(demo):
     assert demo[0].get('/').headers['referrer-policy']=='strict-origin-when-cross-origin'
+
+
+def test_additions_survive_restart_and_demo_admin(demo):
+    driver,admin,dh,ah=demo
+    appmodule.init_db()
+    client=TestClient(appmodule.app)
+    login=client.post('/api/auth/login',json={'email':'admin@admin.com','password':'admin1234'})
+    assert login.status_code==200
+    assert login.json()['user']['role']=='admin'
+    assert client.get('/api/admin/dashboard').status_code==200
+    lots=driver.get('/api/lots').json()
+    assert len(lots)==2
+    lot=next(l for l in lots if l['id']=='demo-hermanos-g')
+    assert lot['address']=='Carrera 8 # 1A-41'
+    assert lot['image']=='hermanos_g.png'
+    assert client.get('/static/media/hermanos_g.png').status_code==200
+    assert client.delete('/api/admin/lots/demo-hermanos-g',headers={'X-CSRF-Token':login.json()['csrf']}).status_code==200
+    appmodule.init_db()
+    assert len(driver.get('/api/lots').json())==1

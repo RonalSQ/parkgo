@@ -129,6 +129,21 @@ def init_db():
                 'Vigilancia,Cámaras,Techado,Baños,Acceso QR', 'garage_main.jpg', 2, 4, 4, 1, 1,
                 now().isoformat(timespec='seconds')
             ))
+        # Stable IDs make additions safe for existing databases and restarts.
+        db.execute('''INSERT OR IGNORE INTO lots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+            'demo-hermanos-g', 'Hermanos G', 'Pamplona', 'Centro · Demo',
+            'Carrera 8 # 1A-41', 7.3780, -72.6500,
+            24, 12, 4000, 2000, '06:00', '22:00',
+            'Parqueadero en Pamplona. Cupos, tarifas, servicios y coordenadas de demostración; ubicación aproximada por confirmar.',
+            'Vigilancia,Cámaras,Techado,Iluminación,Acceso QR', 'hermanos_g.png', 1, 6, 4, 1, 1,
+            now().isoformat(timespec='seconds')
+        ))
+        # Additional account explicitly provided for this academic demonstration.
+        if not db.execute('SELECT id FROM users WHERE email=?', ('admin@admin.com',)).fetchone():
+            db.execute('INSERT INTO users VALUES (?,?,?,?,?,?)', (
+                secrets.token_hex(12), 'Administrador Demo', 'admin@admin.com',
+                hash_password('admin1234'), 'admin', now().isoformat(timespec='seconds')
+            ))
         row = db.execute('SELECT id FROM users WHERE email=?',(ADMIN_EMAIL,)).fetchone()
         if not row:
             db.execute('INSERT INTO users VALUES (?,?,?,?,?,?)',(

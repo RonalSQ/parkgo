@@ -20,3 +20,11 @@
 Las pruebas automáticas incluyen reservas simultáneas, cruces de horario, cancelación, permisos y registro de establecimientos. Ejecuta `.venv/Scripts/python.exe -m pytest -q` tras instalar `pytest` y `httpx` en el entorno virtual.
 
 Los mapas necesitan internet y dependen de la disponibilidad de OpenStreetMap. Esta app sigue siendo una demostración: no procesa pagos reales. Los cambios locales deben publicarse para que aparezcan en el enlace de Render.
+
+
+## Acceso y parqueadero Hermanos G (25 de octubre de 2026)
+
+- El formulario incluye Conductor / Administrador también en celular. Las cuentas administradoras se redirigen a /business; las cuentas de conductor no pueden gestionar parqueaderos.
+- Cuenta adicional de demostración: admin@admin.com / admin1234. Tiene permisos para gestionar todos los parqueaderos del demo; no usar estas credenciales públicas para datos reales.
+- Hermanos G: Carrera 8 # 1A-41, Pamplona, con la foto aportada. Datos simulados: 24 autos, 12 motos, $4.000/h auto, $2.000/h moto, 06:00–22:00. Coordenadas aproximadas editables desde el panel.
+- Las incorporaciones se crean al iniciar el servidor, incluso en bases existentes; no duplican registros ni sobrescriben ediciones o archivos del parqueadero en reinicios.

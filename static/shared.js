@@ -40,7 +40,7 @@ const PG = (() => {
  const icon=(name,size=20)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.info}</svg>`;
  const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const money=n=>'$'+Number(n||0).toLocaleString('es-CO');
- const media=f=>'/static/media/'+(['garage_main.jpg','garage_wide.jpg','garage_green.jpg','garage_car.jpg'].includes(f)?f:'garage_main.jpg');
+ const media=f=>'/static/media/'+(['garage_main.jpg','garage_wide.jpg','garage_green.jpg','garage_car.jpg','hermanos_g.png'].includes(f)?f:'garage_main.jpg');
  const statusName={confirmed:'Confirmada',checked_in:'Vehículo ingresó',completed:'Finalizada',cancelled:'Cancelada'};
  const toast=(message,bad=false)=>{const el=document.getElementById('toast');el.textContent=message;el.className='toast-msg '+(bad?'error':'');clearTimeout(el._timer);el._timer=setTimeout(()=>{el.className='';el.textContent='';},6000)};
  const errorText=err=>String(err?.detail||err?.message||'Ha ocurrido un error.');
